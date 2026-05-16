@@ -90,6 +90,19 @@ class TextNowProvider(Provider):
             await page.goto(SIGNUP_URL, wait_until="domcontentloaded", timeout=60_000)
             await _human_pause(800, 1600)
 
+            # Empirical 2026-05: TextNow deprecated web signup. Hitting
+            # /signup unconditionally redirects to /download (their mobile-app
+            # install page). Web-only automation cannot mint new numbers
+            # anymore. Detect that redirect explicitly so the operator sees
+            # the actual blocker, not a "form layout drifted" red herring.
+            if "/download" in page.url or "/signup" not in page.url:
+                raise RuntimeError(
+                    "TextNow has deprecated web-based signup — /signup now "
+                    f"redirects to {page.url}. Web automation cannot create "
+                    "new TextNow numbers. Use the iOS/Android app manually "
+                    "(once), then store credentials and use `phoneforge wait`."
+                )
+
             # Dismiss cookie / GDPR banner if present (TextNow shows one to
             # EU exit IPs even though we're US-proxied; some accept-all
             # selector usually works).

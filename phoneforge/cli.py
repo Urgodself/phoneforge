@@ -84,6 +84,42 @@ def cmd_list(
         )
 
 
+@app.command("import-manual")
+def cmd_import_manual(
+    number: str = typer.Option(..., "--number", "-n", help="E.164 number, e.g. +18475550199"),
+    email: str = typer.Option(..., "--email", "-e", help="TextNow account email"),
+    password: str = typer.Option(..., "--password", "-w", help="TextNow account password", prompt=True, hide_input=True),
+    provider: str = typer.Option("textnow", "--provider", "-p"),
+    used_for: str = typer.Option("", "--used-for", "-u"),
+    notes: str = typer.Option("manual import", "--notes"),
+) -> None:
+    """Manually register a number you provisioned by hand (e.g. via TextNow mobile app).
+
+    Because TextNow killed web signup in 2023-2024, the realistic flow is:
+      1. Install the TextNow Android/iOS app on a clean device
+      2. Sign up there, get a number, write down email + password
+      3. Run `phoneforge import-manual` to record the credentials
+      4. `phoneforge wait <number>` will then log into the web client to read SMS
+    """
+    db.init()
+    from . import browser as _browser
+    # Sample a WebGL pair now so re-login is fingerprint-stable.
+    webgl = _browser.sample_windows_webgl_pair()
+    rowid = db.insert_number(
+        number=number,
+        provider=provider,
+        account_email=email,
+        account_password=password,
+        identity={"manual": True, "email": email},
+        webgl_vendor=webgl[0],
+        webgl_renderer=webgl[1],
+        proxy_str="",
+        used_for=used_for,
+        notes=notes,
+    )
+    typer.echo(f"OK — number stored (id={rowid}). Use `phoneforge wait {number}` to receive SMS.")
+
+
 @app.command("mark-burned")
 def cmd_mark_burned(
     number: str = typer.Argument(...),

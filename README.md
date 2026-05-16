@@ -8,15 +8,18 @@ residential exit IP, returns its phone number, and stores the credentials so
 Built on Camoufox (antidetect Firefox) + Playwright + OpenAI. Reuses the
 residential proxy pool from `yt-manager` — read-only, no mutations there.
 
-## Status (v0.1.0)
+## Status (v0.1.0) — honest
 
-- Skeleton: complete
-- SQLite ledger: complete
-- Smartproxy fetch (local + SSH): complete
-- Camoufox launch with WebGL-pair lock: complete
-- TextNow signup automation: **best-effort**, see "TextNow caveats" below
-- TextNow inbox reading for `wait`: complete
-- OpenAI identity generation + SMS parsing + (optional) captcha vision: complete
+| Component                         | Status                                          |
+|-----------------------------------|-------------------------------------------------|
+| CLI (typer, 5 commands)           | works                                           |
+| SQLite ledger                     | works                                           |
+| Smartproxy fetch (local + SSH)    | works — verified end-to-end on VPS              |
+| Camoufox launch + WebGL lock      | works — verified on VPS, opens proxied browser  |
+| OpenAI identity / SMS-parse / vision | works (modules ready, gpt-4o-mini + gpt-4o)  |
+| **TextNow web signup**            | **dead** — TextNow killed web signup in 2023-2024; /signup redirects to /download. The mobile app is now mandatory. |
+| TextNow inbox read (`wait`)       | works *only* for accounts that were created elsewhere first |
+| `import-manual` flow              | works — store a hand-provisioned number, then `wait` automates SMS reading |
 
 ## Install
 
@@ -45,38 +48,54 @@ phoneforge db-init
 ## Usage
 
 ```bash
-# Mint a new disposable US number for a YouTube signup
-phoneforge get --service youtube
-# → +18475550199
+# Initialize the SQLite ledger (first run only)
+phoneforge db-init
 
-# Later, when YouTube asks for the SMS code:
+# === Realistic flow (recommended after TextNow killed web signup) ===
+
+# 1. On a clean Android device / emulator, install TextNow, sign up, note the
+#    email, password and granted phone number.
+# 2. Register the credentials with PhoneForge:
+phoneforge import-manual --number +18475550199 --email someone@gmail.com
+# (prompts for password)
+
+# 3. Whenever a service sends an SMS to that number, pull the code:
 phoneforge wait +18475550199 --service youtube
 # → 482910
 
-# Inspect the ledger
-phoneforge list
+# === Web-signup path (BROKEN — kept for completeness) ===
+phoneforge get --service youtube
+# → RuntimeError: TextNow has deprecated web-based signup — /signup now
+#   redirects to /download. ...
 
-# Mark a number unusable
+# === Ledger management ===
+phoneforge list
 phoneforge mark-burned +18475550199 --reason "shadowbanned"
 ```
 
-## TextNow caveats
+## Why TextNow signup doesn't work
 
-TextNow's signup gauntlet is the hard part. Three failure modes:
+Empirical test on 2026-05-16 from a US-residential Smartproxy exit IP:
+`https://www.textnow.com/signup` does an unconditional 30x redirect to
+`https://www.textnow.com/download`. There is no signup form in the DOM —
+the page is a pure mobile-app store-link page. This is TextNow's anti-bot
+strategy: account creation is locked behind iOS/Android device attestation
+(SafetyNet / DeviceCheck). Web-only automation cannot bypass it.
 
-1. **Email verification.** TextNow may send a confirmation email before
-   granting a number. v0.1 does NOT auto-create a mailbox; set
-   `PHONEFORGE_MANUAL_SIGNUP=true` and complete the email click manually in
-   the open browser, then press Enter to resume.
-2. **reCAPTCHA.** If TextNow serves v2 reCAPTCHA, v0.1 does not auto-solve.
-   Same manual-mode flow applies.
-3. **Phone verification on signup.** Chicken-and-egg — TextNow asks for an
-   existing phone number to confirm. No automated workaround; the run aborts
-   with a clear message. If TextNow rolls this out for everyone, we'd switch
-   to a different upstream (TextFree, SecondLine stubs are in `providers/`).
+Alternative paths considered:
 
-The `wait` command (login + inbox read) is much more reliable — no captcha,
-no email walls.
+- **TextFree / SecondLine** (stubs already in `providers/`): need
+  empirical probe — likely also app-only by now.
+- **Paid SMS-activation APIs** (`5sim.net`, `sms-activate.org`,
+  `daisysms.com`): ~$0.05-0.30 per US number, REST API, no browser. This
+  is the de-facto standard "disposable US number" path in 2024-2026 and is
+  much cheaper than building app-emulator infrastructure.
+- **Android emulator + Appium for the TextNow app**: roughly 1 week of work,
+  fragile against app updates, requires ARM-Android image on the VPS or a
+  remote device farm. Possible but not free in any real sense.
+
+The `wait` command (login + inbox read on the existing web client) is
+unaffected — it works fine for accounts created via the mobile app.
 
 ## Proxy source
 
