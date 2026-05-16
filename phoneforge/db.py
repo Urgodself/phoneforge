@@ -22,24 +22,25 @@ from typing import Iterator, Optional
 
 from . import config
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS numbers (
-    id              INTEGER PRIMARY KEY AUTOINCREMENT,
-    number          TEXT    NOT NULL UNIQUE,
-    provider        TEXT    NOT NULL,
-    account_email   TEXT    NOT NULL,
-    account_password TEXT   NOT NULL,
-    identity_json   TEXT    NOT NULL DEFAULT '{}',
-    webgl_vendor    TEXT    DEFAULT '',
-    webgl_renderer  TEXT    DEFAULT '',
-    proxy_str       TEXT    DEFAULT '',
-    created_at      REAL    NOT NULL,
-    last_used_at    REAL    DEFAULT NULL,
-    used_for        TEXT    DEFAULT '',
-    status          TEXT    NOT NULL DEFAULT 'active',
-    notes           TEXT    DEFAULT ''
+    id                INTEGER PRIMARY KEY AUTOINCREMENT,
+    number            TEXT    NOT NULL UNIQUE,
+    provider          TEXT    NOT NULL,
+    account_email     TEXT    NOT NULL,
+    account_password  TEXT    NOT NULL,
+    identity_json     TEXT    NOT NULL DEFAULT '{}',
+    webgl_vendor      TEXT    DEFAULT '',
+    webgl_renderer    TEXT    DEFAULT '',
+    proxy_str         TEXT    DEFAULT '',
+    created_at        REAL    NOT NULL,
+    last_used_at      REAL    DEFAULT NULL,
+    used_for          TEXT    DEFAULT '',
+    status            TEXT    NOT NULL DEFAULT 'active',
+    notes             TEXT    DEFAULT '',
+    provider_order_id TEXT    DEFAULT ''
 );
 
 CREATE INDEX IF NOT EXISTS idx_numbers_status   ON numbers(status);
@@ -89,12 +90,33 @@ def connect(db_path: Optional[Path] = None) -> Iterator[sqlite3.Connection]:
         conn.close()
 
 
+def _column_exists(conn: sqlite3.Connection, table: str, column: str) -> bool:
+    """Check whether a column exists on a table (idempotent migration helper)."""
+    cur = conn.execute(f"PRAGMA table_info({table})")
+    cols = {row[1] for row in cur.fetchall()}
+    return column in cols
+
+
+def _migrate(conn: sqlite3.Connection) -> None:
+    """Idempotent column-level migrations.
+
+    SQLite has no `IF NOT EXISTS` for ADD COLUMN, so we gate each migration
+    through PRAGMA table_info — running `init()` on a v2 DB must be a no-op.
+    """
+    # v1 → v2 : add provider_order_id (5sim order id, used by `wait` to poll).
+    if not _column_exists(conn, "numbers", "provider_order_id"):
+        conn.execute(
+            "ALTER TABLE numbers ADD COLUMN provider_order_id TEXT DEFAULT ''"
+        )
+
+
 def init(db_path: Optional[Path] = None) -> Path:
-    """Create schema + record version. Idempotent."""
+    """Create schema + run idempotent migrations. Safe to call repeatedly."""
     _ensure_data_dir()
     path = db_path or config.DB_PATH
     with connect(path) as conn:
         conn.executescript(_SCHEMA)
+        _migrate(conn)
         conn.execute(
             "INSERT OR REPLACE INTO schema_meta(key, value) VALUES (?, ?)",
             ("schema_version", str(SCHEMA_VERSION)),
@@ -117,6 +139,7 @@ def insert_number(
     proxy_str: str = "",
     used_for: str = "",
     notes: str = "",
+    provider_order_id: str = "",
 ) -> int:
     with connect() as conn:
         cur = conn.execute(
@@ -124,8 +147,8 @@ def insert_number(
             INSERT INTO numbers
                 (number, provider, account_email, account_password,
                  identity_json, webgl_vendor, webgl_renderer, proxy_str,
-                 created_at, used_for, status, notes)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?)
+                 created_at, used_for, status, notes, provider_order_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?)
             """,
             (
                 number,
@@ -139,6 +162,7 @@ def insert_number(
                 time.time(),
                 used_for,
                 notes,
+                provider_order_id,
             ),
         )
         return int(cur.lastrowid or 0)

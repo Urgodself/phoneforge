@@ -1,25 +1,26 @@
 # PhoneForge
 
-On-demand US phone number provisioning for verification flows.
-Each `phoneforge get` creates a brand-new TextNow account behind a fresh US
-residential exit IP, returns its phone number, and stores the credentials so
-`phoneforge wait` can later log back in and pick up the SMS code.
+On-demand US phone-number provisioning for verification flows.
+Primary path: **5sim.net** REST API — rent a number per-service, poll for SMS,
+finish or ban (refund). Fallback: `import-manual` for manually-provisioned
+TextNow numbers (web signup is dead).
 
-Built on Camoufox (antidetect Firefox) + Playwright + OpenAI. Reuses the
-residential proxy pool from `yt-manager` — read-only, no mutations there.
+Built on httpx (async REST), OpenAI (SMS parse fallback), Camoufox + Playwright
+(only used by the legacy TextNow path — kept for `wait` on imported numbers).
 
-## Status (v0.1.0) — honest
+## Status (v0.2.0) — honest
 
 | Component                         | Status                                          |
 |-----------------------------------|-------------------------------------------------|
-| CLI (typer, 5 commands)           | works                                           |
-| SQLite ledger                     | works                                           |
-| Smartproxy fetch (local + SSH)    | works — verified end-to-end on VPS              |
-| Camoufox launch + WebGL lock      | works — verified on VPS, opens proxied browser  |
-| OpenAI identity / SMS-parse / vision | works (modules ready, gpt-4o-mini + gpt-4o)  |
-| **TextNow web signup**            | **dead** — TextNow killed web signup in 2023-2024; /signup redirects to /download. The mobile app is now mandatory. |
-| TextNow inbox read (`wait`)       | works *only* for accounts that were created elsewhere first |
-| `import-manual` flow              | works — store a hand-provisioned number, then `wait` automates SMS reading |
+| CLI (typer, 8 commands)           | works                                           |
+| SQLite ledger (v2 — order_id column) | works, idempotent migration from v1          |
+| **5sim.net SMS-API**              | **primary** — provision / fetch_sms / finish / ban / balance / list_services |
+| Smartproxy fetch (local + SSH)    | works — used only by TextNow browser path       |
+| Camoufox launch + WebGL lock      | works — used only by TextNow browser path       |
+| OpenAI SMS-parse fallback         | works (5sim usually pre-parses `code`)          |
+| TextNow web signup                | **dead** — `/signup` → `/download`. Archived for reference. |
+| TextNow inbox read (`wait`)       | works for accounts that were created elsewhere first |
+| `import-manual` flow              | works — store a hand-provisioned number, then `wait` reads SMS via web |
 
 ## Install
 
@@ -48,30 +49,69 @@ phoneforge db-init
 ## Usage
 
 ```bash
-# Initialize the SQLite ledger (first run only)
+# Initialize / migrate the SQLite ledger (first run + after upgrade)
 phoneforge db-init
 
-# === Realistic flow (recommended after TextNow killed web signup) ===
+# === Primary flow: 5sim.net ===
 
-# 1. On a clean Android device / emulator, install TextNow, sign up, note the
-#    email, password and granted phone number.
-# 2. Register the credentials with PhoneForge:
-phoneforge import-manual --number +18475550199 --email someone@gmail.com
-# (prompts for password)
+# Smoke-test the API key + connectivity (returns balance in RUB):
+phoneforge balance
+# → 312.50 RUB
 
-# 3. Whenever a service sends an SMS to that number, pull the code:
-phoneforge wait +18475550199 --service youtube
+# Browse what's available right now (sorted by stock):
+phoneforge services --country usa --operator any
+phoneforge services --country usa --limit 100 --all       # see everything
+
+# Rent a US number for a specific service:
+phoneforge get --service google --country usa
+# → +13105550199
+
+# Wait up to 5 min for the code; on success the order is `finish`ed.
+phoneforge wait +13105550199 --service google
 # → 482910
+# On NO_CODE timeout it asks: "Ban + refund this 5sim order? [Y/n]"
+# Override that prompt with --auto-ban (always refund) or --no-ban-prompt (never).
 
-# === Web-signup path (BROKEN — kept for completeness) ===
-phoneforge get --service youtube
-# → RuntimeError: TextNow has deprecated web-based signup — /signup now
-#   redirects to /download. ...
+# === Fallback: manual TextNow account (web signup is dead) ===
+
+phoneforge import-manual \
+  --number +18475550199 --email someone@gmail.com --provider textnow
+phoneforge wait +18475550199 --service youtube
 
 # === Ledger management ===
-phoneforge list
-phoneforge mark-burned +18475550199 --reason "shadowbanned"
+phoneforge list                                # all numbers
+phoneforge list --status active                # only active
+phoneforge mark-burned +13105550199 --reason "rate-limited"
 ```
+
+### Country / operator slugs (5sim)
+
+5sim uses lowercase slugs: `usa`, `russia`, `germany`, `philippines`, etc.
+Operator is `any` by default (let 5sim pick the cheapest in-stock SIM).
+Defaults live in `.env` (`FIVESIM_COUNTRY`, `FIVESIM_OPERATOR`); CLI flags
+override per-call.
+
+### Pricing (5sim, as of 2026)
+
+5sim quotes everything in **RUB**. Typical US numbers run **~5-25 RUB**
+(roughly $0.05-0.30) depending on service — `google` / `youtube` /
+`telegram` are usually on the cheaper end, popular crypto / banking
+services on the higher end. `phoneforge services` shows live prices.
+
+Top up the balance on https://5sim.net/billing (cards via Wise, crypto,
+or P2P). Refunds for banned-and-never-delivered orders are automatic —
+that's why `phoneforge wait` prompts to ban on NO_CODE timeout: free money
+back if you accept.
+
+### Exit codes
+
+| code | meaning                                                       |
+|------|---------------------------------------------------------------|
+| 0    | success                                                       |
+| 1    | generic error (5sim API error, DB error, …)                   |
+| 2    | bad input / NO_CODE timeout / missing FIVESIM_API_KEY         |
+| 3    | 5sim auth error (key invalid / revoked)                        |
+| 4    | 5sim has no inventory for the requested service+country       |
 
 ## Why TextNow signup doesn't work
 
@@ -112,19 +152,39 @@ Useful for VPS deploys where the local Mac DB isn't reachable.
 
 ```
 phoneforge/
-├── cli.py              entry point — typer
-├── core.py             orchestrator
-├── config.py           env loading
-├── db.py               SQLite ledger
-├── browser.py          Camoufox launcher (Windows OS, WebGL pair locked per account)
-├── proxy.py            Smartproxy template → US-pinned URL
-├── llm.py              OpenAI: identity / SMS parse / captcha vision
+├── cli.py              entry point — typer (8 commands)
+├── core.py             orchestrator — routes browser vs SMS-API flow
+├── config.py           env loading — OpenAI + 5sim + proxy + Camoufox keys
+├── db.py               SQLite ledger + idempotent column-level migrations
+├── browser.py          Camoufox launcher (used only by TextNow path)
+├── proxy.py            Smartproxy template → US-pinned URL (TextNow path only)
+├── llm.py              OpenAI: identity / SMS parse fallback / captcha vision
 └── providers/
-    ├── base.py         abstract Provider
-    ├── textnow.py      PRIMARY
-    ├── textfree.py     v2 stub
-    └── secondline.py   v2 stub
+    ├── base.py         Provider base with two flows (browser + SMS-API)
+    ├── sms5sim.py      PRIMARY — 5sim.net REST API client
+    └── textnow.py      LEGACY — kept for `import-manual` + browser `wait`
 ```
+
+## Deployment (VPS)
+
+After Aleksej drops the 5sim key on `ytm-vps`:
+
+```bash
+ssh ytm-vps
+cd /root/phoneforge && git pull
+echo "FIVESIM_API_KEY=eyJhbGciOi..." >> .env
+chmod 600 .env
+source .venv/bin/activate
+pip install -e ".[dev]"
+phoneforge db-init                              # migrates v1 → v2 silently
+phoneforge balance                              # smoke-test, prints "X.YZ RUB"
+phoneforge services --country usa | head -20    # see what's in stock
+phoneforge get --service google --country usa   # rent a real number
+phoneforge wait +1xxxxxxxxxx --service google   # block until SMS or 5 min timeout
+```
+
+The key never lands in git: `.env` is in `.gitignore` from commit 1; the CLI
+never logs the key value; tests use a stub `dummy-test-key`.
 
 ## License
 
