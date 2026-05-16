@@ -1,0 +1,45 @@
+# Secrets — NEVER commit
+.env
+.env.*
+!.env.example
+
+# Data — local DB with phone numbers + credentials
+data/
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+env/
+ENV/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Editor / OS
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*~
+
+# Build artefacts
+build/
+dist/
+*.egg-info/
+
+# Camoufox runtime artefacts
+profile-*/
+.camoufox/
+
+# Logs
+logs/
+*.log
