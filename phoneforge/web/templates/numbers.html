@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}PHONEFORGE — history{% endblock %}
+{% block content %}
+
+<section class="mb-6">
+  <h1 class="text-xl font-bold tracking-wider mb-1">HISTORY</h1>
+  <p class="text-[#7a7a7a] text-sm">All provisioned numbers, newest first.</p>
+</section>
+
+<nav class="flex gap-3 mb-6 text-sm">
+  <a href="/numbers"          class="{% if not status_filter %}text-accent{% else %}text-neutral-300 hover:text-accent{% endif %}">all</a>
+  <a href="/numbers?status=active" class="{% if status_filter == 'active' %}text-accent{% else %}text-neutral-300 hover:text-accent{% endif %}">active</a>
+  <a href="/numbers?status=done"   class="{% if status_filter == 'done' %}text-accent{% else %}text-neutral-300 hover:text-accent{% endif %}">done</a>
+  <a href="/numbers?status=burned" class="{% if status_filter == 'burned' %}text-accent{% else %}text-neutral-300 hover:text-accent{% endif %}">burned</a>
+</nav>
+
+{% if numbers %}
+<table>
+  <thead>
+    <tr>
+      <th>number</th>
+      <th>provider</th>
+      <th>service</th>
+      <th>country</th>
+      <th>status</th>
+      <th>created</th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for n in numbers %}
+    <tr>
+      <td class="font-mono">{{ n.number }}</td>
+      <td class="text-[#9a9a9a]">{{ n.provider }}</td>
+      <td>{{ n.service or n.used_for or '&mdash;'|safe }}</td>
+      <td class="text-[#9a9a9a]">{{ n.country|upper if n.country else '&mdash;'|safe }}</td>
+      <td><span class="badge badge-{{ n.status }}">{{ n.status }}</span></td>
+      <td class="text-[#7a7a7a] text-xs">{{ n.created_at_iso }}</td>
+      <td><a href="/number/{{ n.id }}" class="text-accent text-xs">open &rarr;</a></td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+<p class="text-[#7a7a7a] text-xs mt-3">{{ numbers|length }} rows</p>
+{% else %}
+<p class="text-[#7a7a7a] text-sm">No numbers yet.</p>
+{% endif %}
+
+{% endblock %}

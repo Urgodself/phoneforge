@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>{% block title %}PHONEFORGE{% endblock %}</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: { extend: {
+        colors: { accent: '#00ff88', bg: '#0a0a0a', surface: '#141414', border: '#262626', muted: '#7a7a7a' },
+        fontFamily: { mono: ['ui-monospace','SFMono-Regular','Menlo','Monaco','Consolas','monospace'] },
+      }}
+    }
+  </script>
+  <style>
+    body { background: #0a0a0a; color: #e5e5e5; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
+    a { color: #00ff88; }
+    .btn { display:inline-block; padding: .45rem .85rem; border-radius: .375rem; background: #00ff88; color: #0a0a0a; font-weight: 600; }
+    .btn:hover { filter: brightness(.92); }
+    .btn-ghost { background: transparent; border: 1px solid #262626; color: #e5e5e5; }
+    .btn-danger { background: #ef4444; color: #fff; }
+    .btn-danger:hover { filter: brightness(.92); }
+    input, select { background: #141414; border: 1px solid #262626; color: #e5e5e5; padding: .4rem .6rem; border-radius: .25rem; }
+    input:focus, select:focus { outline: none; border-color: #00ff88; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { padding: .55rem .7rem; text-align: left; border-bottom: 1px solid #1f1f1f; vertical-align: top; }
+    th { font-weight: 600; color: #9a9a9a; text-transform: uppercase; font-size: .7rem; letter-spacing: .05em; }
+    tbody tr:nth-child(even) { background: #0e0e0e; }
+    tbody tr:hover { background: #1a1a1a; }
+    .badge { display: inline-block; padding: .15rem .5rem; border-radius: .25rem; font-size: .75rem; }
+    .badge-active  { background: #052e16; color: #4ade80; }
+    .badge-done    { background: #1e3a8a; color: #93c5fd; }
+    .badge-burned  { background: #3f1d1d; color: #fca5a5; }
+    .badge-pending { background: #3a2f06; color: #fcd34d; }
+  </style>
+</head>
+<body>
+  <header class="border-b border-[#1f1f1f]">
+    <div class="max-w-6xl mx-auto px-6 py-3 flex items-center justify-between text-sm">
+      <a href="/" class="text-accent font-bold tracking-widest">PHONEFORGE</a>
+      <nav class="flex items-center gap-4">
+        <a href="/" class="text-neutral-200 hover:text-accent">dashboard</a>
+        <a href="/services" class="text-neutral-200 hover:text-accent">services</a>
+        <a href="/numbers" class="text-neutral-200 hover:text-accent">history</a>
+      </nav>
+      <div class="flex items-center gap-4">
+        {% if balance %}
+        <span class="text-neutral-300{% if balance.stale %} text-muted{% endif %}" title="{% if balance.stale %}stale (5sim unreachable){% endif %}">
+          {% if balance.amount is not none %}&#x20bd; {{ '%.2f'|format(balance.amount) }}{% else %}&#x20bd; &mdash;{% endif %}
+        </span>
+        {% endif %}
+        <form method="post" action="/logout" class="inline">
+          <button type="submit" class="text-muted hover:text-neutral-200">logout</button>
+        </form>
+      </div>
+    </div>
+  </header>
+  <main class="max-w-6xl mx-auto px-6 py-8">
+    {% block content %}{% endblock %}
+  </main>
+</body>
+</html>

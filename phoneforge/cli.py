@@ -282,6 +282,34 @@ def cmd_import_manual(
     typer.echo(f"OK — number stored (id={rowid}). Use `phoneforge wait {number}` to receive SMS.")
 
 
+@app.command("serve")
+def cmd_serve(
+    host: str = typer.Option("127.0.0.1", "--host", "-h", help="Bind address (use 0.0.0.0 on a VPS behind Caddy)"),
+    port: int = typer.Option(8002, "--port", "-p", help="Port to listen on"),
+    reload: bool = typer.Option(False, "--reload", help="Auto-reload on code changes (dev only)"),
+) -> None:
+    """Start the FastAPI web UI (PIN-protected dashboard).
+
+    For local testing on a Mac use --reload. The VPS systemd unit runs
+    uvicorn directly with phoneforge.web:create_app, not this command,
+    so --reload behaviour does not need to match production.
+    """
+    import uvicorn
+
+    # Defer the import — keeps `phoneforge --help` fast and avoids loading
+    # FastAPI at all for the pure-CLI commands.
+    uvicorn.run(
+        "phoneforge.web:create_app",
+        host=host,
+        port=port,
+        reload=reload,
+        factory=True,
+        log_level="info",
+        proxy_headers=True,
+        forwarded_allow_ips="*",
+    )
+
+
 @app.command("mark-burned")
 def cmd_mark_burned(
     number: str = typer.Argument(...),

@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block title %}PHONEFORGE — dashboard{% endblock %}
+{% block content %}
+
+<section class="mb-10">
+  <h1 class="text-xl font-bold tracking-wider mb-1">DASHBOARD</h1>
+  <p class="text-[#7a7a7a] text-sm">{{ default_country|upper }} / {{ default_operator }} default. Buy a number from the services page.</p>
+</section>
+
+<section class="mb-10">
+  <div class="flex items-baseline gap-4 mb-3">
+    <h2 class="text-sm uppercase tracking-widest text-[#9a9a9a]">Quick action</h2>
+  </div>
+  <form method="post" action="/buy" class="flex flex-wrap items-end gap-3 p-4 border border-[#262626] rounded">
+    <label class="flex flex-col gap-1">
+      <span class="text-xs text-[#7a7a7a]">service slug</span>
+      <input type="text" name="service" placeholder="e.g. telegram, google, openai" required class="w-56" autocomplete="off">
+    </label>
+    <label class="flex flex-col gap-1">
+      <span class="text-xs text-[#7a7a7a]">country</span>
+      <input type="text" name="country" value="{{ default_country }}" class="w-28" autocomplete="off">
+    </label>
+    <label class="flex flex-col gap-1">
+      <span class="text-xs text-[#7a7a7a]">operator</span>
+      <input type="text" name="operator" value="{{ default_operator }}" class="w-28" autocomplete="off">
+    </label>
+    <button type="submit" class="btn">get number</button>
+    <a href="/services?country={{ default_country }}&operator={{ default_operator }}" class="btn btn-ghost">browse services</a>
+  </form>
+</section>
+
+<section>
+  <div class="flex items-baseline justify-between mb-3">
+    <h2 class="text-sm uppercase tracking-widest text-[#9a9a9a]">Recent numbers</h2>
+    <a href="/numbers" class="text-xs text-[#7a7a7a] hover:text-accent">view all &rarr;</a>
+  </div>
+  {% if numbers %}
+  <table>
+    <thead>
+      <tr>
+        <th>number</th>
+        <th>provider</th>
+        <th>service</th>
+        <th>status</th>
+        <th>created</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for n in numbers %}
+      <tr>
+        <td class="font-mono">{{ n.number }}</td>
+        <td class="text-[#9a9a9a]">{{ n.provider }}</td>
+        <td>{{ n.service or n.used_for or '&mdash;'|safe }}</td>
+        <td><span class="badge badge-{{ n.status }}">{{ n.status }}</span></td>
+        <td class="text-[#7a7a7a] text-xs">{{ n.created_at_iso }}</td>
+        <td><a href="/number/{{ n.id }}" class="text-accent text-xs">open &rarr;</a></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="text-[#7a7a7a] text-sm">No numbers yet. Buy your first one above.</p>
+  {% endif %}
+</section>
+
+{% endblock %}

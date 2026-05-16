@@ -1,0 +1,33 @@
+[Unit]
+Description=PhoneForge web UI (FastAPI + uvicorn)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/root/phoneforge
+EnvironmentFile=/root/phoneforge/.env
+# Listen only on localhost — Caddy reverse-proxies HTTPS to us. Binding to
+# 0.0.0.0 would expose the unencrypted FastAPI app directly to the internet.
+ExecStart=/root/phoneforge/.venv/bin/uvicorn phoneforge.web:create_app \
+    --host 127.0.0.1 --port 8002 \
+    --factory \
+    --proxy-headers --forwarded-allow-ips='127.0.0.1' \
+    --log-level info \
+    --access-log
+
+Restart=always
+RestartSec=3
+
+# Sane resource limits. PhoneForge web is single-user; we shouldn't need
+# more than 256MB even when 5sim returns a 600-row services dump.
+LimitNOFILE=4096
+MemoryMax=512M
+
+# Logs go to journald — `journalctl -u phoneforge-web -f` to tail.
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

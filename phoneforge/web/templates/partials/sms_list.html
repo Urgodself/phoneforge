@@ -1,0 +1,29 @@
+<div id="sms-list"
+     {% if n.status == 'active' and n.provider_order_id %}
+     hx-get="/number/{{ n.id }}/sms"
+     hx-trigger="every 5s"
+     hx-swap="outerHTML"
+     {% endif %}>
+  {% if sms_list %}
+  <ul class="space-y-3">
+    {% for s in sms_list %}
+    <li class="p-3 border border-[#262626] rounded">
+      <div class="flex items-baseline justify-between text-xs text-[#7a7a7a] mb-1">
+        <span>{{ s.received_at_iso }}</span>
+        {% if s.sender %}<span class="text-[#9a9a9a]">from: {{ s.sender }}</span>{% endif %}
+      </div>
+      {% if s.parsed_code %}
+      <div class="text-2xl font-bold tracking-widest text-accent font-mono">{{ s.parsed_code }}</div>
+      {% endif %}
+      {% if s.raw_text and s.raw_text != ('5sim order ' + n.provider_order_id) %}
+      <div class="text-sm mt-1 text-neutral-300">{{ s.raw_text }}</div>
+      {% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="text-[#7a7a7a] text-sm py-4">
+    {% if n.status == 'active' %}waiting for SMS{% if n.provider_order_id %}<span class="animate-pulse">&hellip;</span>{% endif %}{% else %}no SMS received{% endif %}
+  </p>
+  {% endif %}
+</div>

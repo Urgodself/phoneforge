@@ -1,0 +1,21 @@
+# PhoneForge web UI — single-user dashboard for disposable phone numbers.
+# Caddy terminates TLS via Let's Encrypt; the FastAPI app binds 127.0.0.1:8002.
+# Logs go to journald (no `log { output file ... }` block — see
+# feedback_caddy_log_perms: custom file logs need chowned /var/log/caddy
+# and the dir is root-owned by default).
+pf.alexera.pro {
+    encode gzip
+    reverse_proxy localhost:8002 {
+        header_up X-Forwarded-Proto {scheme}
+        header_up X-Forwarded-Host  {host}
+    }
+
+    # Defensive headers — single-user tool, no third-party embeds.
+    header {
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "DENY"
+        Referrer-Policy "no-referrer"
+        # HSTS: only after we're confident on TLS. 30 days is a safe ramp.
+        Strict-Transport-Security "max-age=2592000"
+    }
+}

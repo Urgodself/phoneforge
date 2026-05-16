@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% block title %}PHONEFORGE — services{% endblock %}
+{% block content %}
+
+<section class="mb-6">
+  <h1 class="text-xl font-bold tracking-wider mb-1">SERVICES</h1>
+  <p class="text-[#7a7a7a] text-sm">5sim catalogue for the selected country / operator. Prices in RUB.</p>
+</section>
+
+<form method="get" action="/services" class="flex flex-wrap gap-3 items-end mb-6 p-4 border border-[#262626] rounded">
+  <label class="flex flex-col gap-1">
+    <span class="text-xs text-[#7a7a7a]">country</span>
+    <input type="text" name="country" value="{{ country }}" class="w-28" autocomplete="off">
+  </label>
+  <label class="flex flex-col gap-1">
+    <span class="text-xs text-[#7a7a7a]">operator</span>
+    <input type="text" name="operator" value="{{ operator }}" class="w-28" autocomplete="off">
+  </label>
+  <label class="flex flex-col gap-1 flex-1 min-w-[200px]">
+    <span class="text-xs text-[#7a7a7a]">search</span>
+    <input type="text" name="q" value="{{ q }}" placeholder="filter by service name" autocomplete="off">
+  </label>
+  <label class="flex items-center gap-2 mb-2">
+    <input type="checkbox" name="in_stock" value="1" {% if in_stock %}checked{% endif %} class="accent-[#00ff88]">
+    <span class="text-xs text-[#7a7a7a]">in-stock only</span>
+  </label>
+  <button type="submit" class="btn">apply</button>
+</form>
+
+{% if error %}
+<div class="mb-4 px-3 py-2 rounded border border-red-800 bg-red-950 text-red-300 text-sm">
+  {{ error }}
+</div>
+{% endif %}
+
+{% if rows %}
+<table>
+  <thead>
+    <tr>
+      <th>service</th>
+      <th>category</th>
+      <th class="text-right">price (RUB)</th>
+      <th class="text-right">stock</th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for r in rows %}
+    <tr>
+      <td class="font-mono">{{ r.name }}</td>
+      <td class="text-[#9a9a9a] text-xs">{{ r.category }}</td>
+      <td class="text-right">{{ '%.2f'|format(r.price) }}</td>
+      <td class="text-right {% if r.count == 0 %}text-[#7a7a7a]{% endif %}">{{ r.count }}</td>
+      <td class="text-right">
+        {% if r.count > 0 %}
+        <form method="post" action="/buy" class="inline">
+          <input type="hidden" name="service" value="{{ r.name }}">
+          <input type="hidden" name="country" value="{{ country }}">
+          <input type="hidden" name="operator" value="{{ operator }}">
+          <button type="submit" class="btn text-xs">buy</button>
+        </form>
+        {% else %}
+        <span class="text-[#7a7a7a] text-xs">&mdash;</span>
+        {% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+<p class="text-[#7a7a7a] text-xs mt-3">{{ rows|length }} rows</p>
+{% else %}
+{% if not error %}<p class="text-[#7a7a7a] text-sm">No services found.</p>{% endif %}
+{% endif %}
+
+{% endblock %}

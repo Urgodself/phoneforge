@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block title %}PHONEFORGE — {{ n.number }}{% endblock %}
+{% block content %}
+
+<section class="mb-6">
+  <a href="/" class="text-xs text-[#7a7a7a] hover:text-accent">&larr; back</a>
+  <h1 class="text-2xl font-bold tracking-wider mt-2 mb-1 font-mono">{{ n.number }}</h1>
+  <div class="flex flex-wrap items-center gap-4 text-sm">
+    <span class="badge badge-{{ n.status }}">{{ n.status }}</span>
+    <span class="text-[#9a9a9a]">{{ n.provider }}</span>
+    {% if n.service %}<span class="text-[#9a9a9a]">service: <span class="text-neutral-200">{{ n.service }}</span></span>{% endif %}
+    {% if n.country %}<span class="text-[#9a9a9a]">{{ n.country|upper }}{% if n.operator %} / {{ n.operator }}{% endif %}</span>{% endif %}
+  </div>
+</section>
+
+<section class="grid sm:grid-cols-2 gap-4 mb-8">
+  <div class="p-4 border border-[#262626] rounded">
+    <div class="text-xs text-[#7a7a7a] mb-1">created</div>
+    <div class="text-sm">{{ n.created_at_iso }}</div>
+    <div class="text-xs text-[#7a7a7a] mt-1">{{ n.elapsed_s }}s ago</div>
+  </div>
+  <div class="p-4 border border-[#262626] rounded">
+    <div class="text-xs text-[#7a7a7a] mb-1">expires</div>
+    <div class="text-sm">{{ n.expires_at_iso or '&mdash;'|safe }}</div>
+    {% if n.price %}
+    <div class="text-xs text-[#7a7a7a] mt-1">price: {{ '%.2f'|format(n.price) }} {{ n.currency }}</div>
+    {% endif %}
+  </div>
+</section>
+
+<section class="mb-8">
+  <div class="flex items-baseline justify-between mb-3">
+    <h2 class="text-sm uppercase tracking-widest text-[#9a9a9a]">SMS</h2>
+    {% if n.status == 'active' %}
+    <span class="text-xs text-[#7a7a7a]">auto-refresh every 5s</span>
+    {% endif %}
+  </div>
+  <div id="sms-list"
+       {% if n.status == 'active' and n.provider_order_id %}
+       hx-get="/number/{{ n.id }}/sms"
+       hx-trigger="load, every 5s"
+       hx-swap="outerHTML"
+       {% endif %}>
+    {% include "partials/sms_list.html" %}
+  </div>
+</section>
+
+{% if n.status == 'active' %}
+<section class="flex gap-3">
+  <form method="post" action="/number/{{ n.id }}/burn" class="inline"
+        onsubmit="return confirm('Burn this order? 5sim will refund if no SMS was received.');">
+    <button type="submit" class="btn btn-danger">burn (refund)</button>
+  </form>
+  <form method="post" action="/number/{{ n.id }}/finish" class="inline"
+        onsubmit="return confirm('Mark as finished? No refund.');">
+    <button type="submit" class="btn btn-ghost">mark finished</button>
+  </form>
+</section>
+{% endif %}
+
+{% if n.notes %}
+<section class="mt-8">
+  <h3 class="text-xs uppercase tracking-widest text-[#7a7a7a] mb-2">notes</h3>
+  <pre class="p-3 border border-[#262626] rounded text-xs whitespace-pre-wrap text-[#9a9a9a]">{{ n.notes }}</pre>
+</section>
+{% endif %}
+
+{% endblock %}
