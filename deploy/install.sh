@@ -58,6 +58,9 @@ log "writing Caddy block for ${PF_HOST}"
 grep -q "import ${CADDY_CONF_D}/" "${CADDY_FILE}" \
     || { echo "ERROR — ${CADDY_FILE} does not import ${CADDY_CONF_D}/*.caddy" >&2; exit 1; }
 sed "s/^pf\.alexera\.pro {/${PF_HOST} {/" "${CADDY_SNIPPET}" > "${CADDY_CONF_D}/phoneforge.caddy"
+# Caddy runs as user caddy; a tight umask would leave the file unreadable to it
+# (validate runs as root and passes, then the reload fails).
+chmod 644 "${CADDY_CONF_D}/phoneforge.caddy"
 
 # Validate before reload — Caddy reload-fails-but-still-running is a silent footgun.
 log "validating Caddyfile"
