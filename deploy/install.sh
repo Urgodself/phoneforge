@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# PhoneForge web installer — run on the VPS (ssh ytm-vps).
+# PhoneForge web installer — run on the VPS (ssh hive).
 #
 # Idempotent: safe to re-run. Pulls latest, refreshes the venv, ensures
 # the systemd unit + Caddy block are in place, and verifies the public
@@ -11,7 +11,9 @@ SERVICE_NAME="phoneforge-web"
 SERVICE_FILE="${REPO_DIR}/deploy/${SERVICE_NAME}.service"
 CADDY_SNIPPET="${REPO_DIR}/deploy/Caddyfile.snippet"
 CADDY_FILE="${CADDY_FILE:-/etc/caddy/Caddyfile}"
-PUBLIC_URL="${PUBLIC_URL:-https://pf.alexera.pro}"
+CADDY_CONF_D="${CADDY_CONF_D:-/etc/caddy/conf.d}"
+PF_HOST="${PF_HOST:-pf.alexera.pro}"
+PUBLIC_URL="${PUBLIC_URL:-https://${PF_HOST}}"
 
 log() { printf '\033[36m[install]\033[0m %s\n' "$*"; }
 
@@ -50,27 +52,30 @@ systemctl daemon-reload
 systemctl enable "${SERVICE_NAME}" >/dev/null
 systemctl restart "${SERVICE_NAME}"
 
-# 5. Caddy snippet — idempotent merge
-log "ensuring Caddy block for pf.alexera.pro"
-if ! grep -q 'pf\.alexera\.pro' "${CADDY_FILE}" 2>/dev/null; then
-    printf '\n' >> "${CADDY_FILE}"
-    cat "${CADDY_SNIPPET}" >> "${CADDY_FILE}"
-    log "appended snippet"
-else
-    log "snippet already present (skipping)"
-fi
+# 5. Caddy block — own file in conf.d (the main Caddyfile must `import` it;
+# appending to the main file gets wiped by other deploys on the same box).
+log "writing Caddy block for ${PF_HOST}"
+grep -q "import ${CADDY_CONF_D}/" "${CADDY_FILE}" \
+    || { echo "ERROR — ${CADDY_FILE} does not import ${CADDY_CONF_D}/*.caddy" >&2; exit 1; }
+sed "s/^pf\.alexera\.pro {/${PF_HOST} {/" "${CADDY_SNIPPET}" > "${CADDY_CONF_D}/phoneforge.caddy"
 
 # Validate before reload — Caddy reload-fails-but-still-running is a silent footgun.
 log "validating Caddyfile"
-caddy validate --config "${CADDY_FILE}"
+caddy validate --config "${CADDY_FILE}" \
+    || { rm -f "${CADDY_CONF_D}/phoneforge.caddy"; echo "ERROR — Caddy config invalid, block removed" >&2; exit 1; }
 
 log "reloading Caddy"
 systemctl reload caddy
 
 # 6. Smoke test
+# Up to ~60s: on a fresh host Caddy fetches the TLS cert after the reload.
 log "waiting for service…"
-sleep 2
-if curl -fsS "${PUBLIC_URL}/health" >/dev/null; then
+ok=0
+for _ in $(seq 30); do
+    if curl -fsS "${PUBLIC_URL}/health" >/dev/null 2>&1; then ok=1; break; fi
+    sleep 2
+done
+if [[ "${ok}" -eq 1 ]]; then
     log "OK — ${PUBLIC_URL}/health responded"
 else
     echo "ERROR — ${PUBLIC_URL}/health did not respond" >&2

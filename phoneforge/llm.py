@@ -10,6 +10,7 @@ from __future__ import annotations
 import base64
 import json
 import logging
+import os
 import random
 import re
 from functools import lru_cache
@@ -107,6 +108,12 @@ def parse_sms_code(text: str, service_hint: Optional[str] = None) -> str:
     if not candidates:
         # No digits at all — definitely not a code.
         return ""
+
+    # HACK: the hive deploy runs without OPENAI_API_KEY (5sim pre-parses the
+    # code almost always). Guess the longest run instead of raising — a raise
+    # here 500s the dashboard's SMS poll; the raw text is still shown anyway.
+    if not os.environ.get("OPENAI_API_KEY", "").strip():
+        return max(candidates, key=len)
 
     # Ambiguous — let the LLM pick.
     prompt = (

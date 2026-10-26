@@ -66,6 +66,11 @@ def test_otp_regex_extracts_single_code() -> None:
     assert llm._OTP_REGEX.findall("No numbers here") == []
 
 
+def test_parse_sms_code_ambiguous_without_openai_key(monkeypatch) -> None:
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    assert llm.parse_sms_code("G-482910 is your code. Ref 1234") == "482910"
+
+
 def test_providers_registry() -> None:
     assert "textnow" in PROVIDERS
     p = get_provider("textnow")

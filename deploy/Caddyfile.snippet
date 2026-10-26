@@ -1,11 +1,13 @@
 # PhoneForge web UI — single-user dashboard for disposable phone numbers.
 # Caddy terminates TLS via Let's Encrypt; the FastAPI app binds 127.0.0.1:8002.
+# install.sh writes this to /etc/caddy/conf.d/phoneforge.caddy, swapping the
+# host for $PF_HOST (on hive the main Caddyfile is overwritten by other deploys).
 # Logs go to journald (no `log { output file ... }` block — see
 # feedback_caddy_log_perms: custom file logs need chowned /var/log/caddy
 # and the dir is root-owned by default).
 pf.alexera.pro {
     encode gzip
-    reverse_proxy localhost:8002 {
+    reverse_proxy 127.0.0.1:8002 {
         header_up X-Forwarded-Proto {scheme}
         header_up X-Forwarded-Host  {host}
     }
