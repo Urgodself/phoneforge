@@ -167,22 +167,17 @@ phoneforge/
 
 ## Deployment (VPS)
 
-After Aleksej drops the 5sim key on `ytm-vps`:
+Lives on `hive` (95.179.244.5): `/root/phoneforge`, systemd `phoneforge-web`
+(uvicorn on 127.0.0.1:8002), Caddy block in `/etc/caddy/conf.d/phoneforge.caddy`.
+First install: `git clone` into `/root/phoneforge`, write `.env`
+(`PHONEFORGE_PIN`, `SESSION_SECRET`, `FIVESIM_API_KEY`), then — and for every
+update after that:
 
 ```bash
-ssh ytm-vps
-cd /root/phoneforge && git pull
-echo "FIVESIM_API_KEY=eyJhbGciOi..." >> .env
-chmod 600 .env
-source .venv/bin/activate
-pip install -e ".[dev]"
-phoneforge db-init                              # migrates v1 → v2 silently
-phoneforge balance                              # smoke-test, prints "X.YZ RUB"
-phoneforge services --country usa | head -20    # see what's in stock
-phoneforge get --service google --country usa   # rent a real number
-phoneforge wait +1xxxxxxxxxx --service google   # block until SMS or 5 min timeout
+ssh hive 'cd /root/phoneforge && PF_HOST="pf.alexera.pro pf.95-179-244-5.nip.io" bash deploy/install.sh'
 ```
 
+`PF_HOST` is a space-separated host list; the first one is smoke-tested.
 The key never lands in git: `.env` is in `.gitignore` from commit 1; the CLI
 never logs the key value; tests use a stub `dummy-test-key`.
 

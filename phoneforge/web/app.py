@@ -332,6 +332,10 @@ def create_app() -> FastAPI:
             return RedirectResponse(
                 url="/services?err=missing_service", status_code=303
             )
+        if not config.has_5sim_api_key():
+            # No key → the provider raises RuntimeError (a bare 500). The
+            # services page renders the "not configured" banner itself.
+            return RedirectResponse(url="/services?err=no_key", status_code=303)
 
         try:
             number = await core.provision_number(

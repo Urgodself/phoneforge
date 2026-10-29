@@ -12,8 +12,9 @@ SERVICE_FILE="${REPO_DIR}/deploy/${SERVICE_NAME}.service"
 CADDY_SNIPPET="${REPO_DIR}/deploy/Caddyfile.snippet"
 CADDY_FILE="${CADDY_FILE:-/etc/caddy/Caddyfile}"
 CADDY_CONF_D="${CADDY_CONF_D:-/etc/caddy/conf.d}"
+# Space-separated host list; the first one is smoke-tested.
 PF_HOST="${PF_HOST:-pf.alexera.pro}"
-PUBLIC_URL="${PUBLIC_URL:-https://${PF_HOST}}"
+PUBLIC_URL="${PUBLIC_URL:-https://${PF_HOST%% *}}"
 
 log() { printf '\033[36m[install]\033[0m %s\n' "$*"; }
 
@@ -22,7 +23,14 @@ log() { printf '\033[36m[install]\033[0m %s\n' "$*"; }
 # 1. Pull
 log "git pull in ${REPO_DIR}"
 cd "${REPO_DIR}"
+before="$(git rev-parse HEAD)"
 git pull --ff-only
+# git swaps files by rename, so this bash keeps running the OLD script. If the
+# pull brought anything new, hand over to the fresh copy once.
+if [[ "$(git rev-parse HEAD)" != "${before}" && -z "${PF_REEXEC:-}" ]]; then
+    log "repo updated — re-running the new installer"
+    PF_REEXEC=1 exec bash "${REPO_DIR}/deploy/install.sh" "$@"
+fi
 
 # 2. Ensure venv exists
 if [[ ! -x "${REPO_DIR}/.venv/bin/python" ]]; then
@@ -57,7 +65,7 @@ systemctl restart "${SERVICE_NAME}"
 log "writing Caddy block for ${PF_HOST}"
 grep -q "import ${CADDY_CONF_D}/" "${CADDY_FILE}" \
     || { echo "ERROR — ${CADDY_FILE} does not import ${CADDY_CONF_D}/*.caddy" >&2; exit 1; }
-sed "s/^pf\.alexera\.pro {/${PF_HOST} {/" "${CADDY_SNIPPET}" > "${CADDY_CONF_D}/phoneforge.caddy"
+sed "s/^pf\.alexera\.pro {/${PF_HOST// /, } {/" "${CADDY_SNIPPET}" > "${CADDY_CONF_D}/phoneforge.caddy"
 # Caddy runs as user caddy; a tight umask would leave the file unreadable to it
 # (validate runs as root and passes, then the reload fails).
 chmod 644 "${CADDY_CONF_D}/phoneforge.caddy"

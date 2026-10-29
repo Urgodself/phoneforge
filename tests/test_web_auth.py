@@ -96,3 +96,11 @@ def test_logout_clears_session(client: TestClient) -> None:
     r2 = client.get("/")
     assert r2.status_code == 302
     assert r2.headers["location"] == "/login"
+
+
+def test_buy_without_5sim_key_redirects_not_500(client: TestClient, monkeypatch) -> None:
+    monkeypatch.delenv("FIVESIM_API_KEY", raising=False)
+    client.post("/login", data={"pin": "1991"})
+    r = client.post("/buy", data={"service": "google", "country": "usa", "operator": "any"})
+    assert r.status_code == 303
+    assert r.headers["location"] == "/services?err=no_key"
