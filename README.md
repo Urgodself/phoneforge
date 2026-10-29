@@ -174,7 +174,7 @@ First install: `git clone` into `/root/phoneforge`, write `.env`
 update after that:
 
 ```bash
-ssh hive 'cd /root/phoneforge && PF_HOST="pf.alexera.pro pf.95-179-244-5.nip.io" bash deploy/install.sh'
+ssh hive 'cd /root/phoneforge && PF_HOST="pf.95-179-244-5.nip.io pf.alexera.pro" bash deploy/install.sh'
 ```
 
 `PF_HOST` is a space-separated host list; the first one is smoke-tested.
