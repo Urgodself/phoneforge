@@ -174,10 +174,11 @@ First install: `git clone` into `/root/phoneforge`, write `.env`
 update after that:
 
 ```bash
-ssh hive 'cd /root/phoneforge && PF_HOST="pf.95-179-244-5.nip.io pf.alexera.pro" bash deploy/install.sh'
+ssh hive 'cd /root/phoneforge && bash deploy/install.sh'
 ```
 
-`PF_HOST` is a space-separated host list; the first one is smoke-tested.
+Public address: https://pf.95-179-244-5.nip.io. `PF_HOST` overrides it (a
+space-separated host list; the first one is smoke-tested).
 The key never lands in git: `.env` is in `.gitignore` from commit 1; the CLI
 never logs the key value; tests use a stub `dummy-test-key`.
 

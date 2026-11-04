@@ -5,7 +5,7 @@
 # Logs go to journald (no `log { output file ... }` block — see
 # feedback_caddy_log_perms: custom file logs need chowned /var/log/caddy
 # and the dir is root-owned by default).
-pf.alexera.pro {
+pf.95-179-244-5.nip.io {
     encode gzip
     reverse_proxy 127.0.0.1:8002 {
         header_up X-Forwarded-Proto {scheme}

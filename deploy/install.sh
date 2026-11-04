@@ -13,7 +13,7 @@ CADDY_SNIPPET="${REPO_DIR}/deploy/Caddyfile.snippet"
 CADDY_FILE="${CADDY_FILE:-/etc/caddy/Caddyfile}"
 CADDY_CONF_D="${CADDY_CONF_D:-/etc/caddy/conf.d}"
 # Space-separated host list; the first one is smoke-tested.
-PF_HOST="${PF_HOST:-pf.alexera.pro}"
+PF_HOST="${PF_HOST:-pf.95-179-244-5.nip.io}"
 PUBLIC_URL="${PUBLIC_URL:-https://${PF_HOST%% *}}"
 
 log() { printf '\033[36m[install]\033[0m %s\n' "$*"; }
@@ -65,7 +65,7 @@ systemctl restart "${SERVICE_NAME}"
 log "writing Caddy block for ${PF_HOST}"
 grep -q "import ${CADDY_CONF_D}/" "${CADDY_FILE}" \
     || { echo "ERROR — ${CADDY_FILE} does not import ${CADDY_CONF_D}/*.caddy" >&2; exit 1; }
-sed "s/^pf\.alexera\.pro {/${PF_HOST// /, } {/" "${CADDY_SNIPPET}" > "${CADDY_CONF_D}/phoneforge.caddy"
+sed "s/^pf\.95-179-244-5\.nip\.io {/${PF_HOST// /, } {/" "${CADDY_SNIPPET}" > "${CADDY_CONF_D}/phoneforge.caddy"
 # Caddy runs as user caddy; a tight umask would leave the file unreadable to it
 # (validate runs as root and passes, then the reload fails).
 chmod 644 "${CADDY_CONF_D}/phoneforge.caddy"
